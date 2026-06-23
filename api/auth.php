@@ -1,11 +1,20 @@
 <?php
 header('Content-Type: application/json');
-require_once '../config/database.php';
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
+header('Access-Control-Allow-Headers: Content-Type');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/auth-helper.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
 try {
+    if (!isset($conn) || $conn->connect_error) {
+        throw new Exception('Database connection failed');
+    }
+
     if ($method === 'POST' && $action === 'register') {
         // Register new user
         $data = json_decode(file_get_contents('php://input'), true);
@@ -29,7 +38,7 @@ try {
         // Insert user
         $query = "INSERT INTO users (username, email, password, full_name, role) VALUES (?, ?, ?, ?, 'designer')";
         $stmt = $conn->prepare($query);
-        if (!$stmt) throw new Exception($conn->error);
+        if (!$stmt) throw new Exception('Prepare failed: ' . $conn->error);
         
         $stmt->bind_param('ssss', $username, $email, $hashed_password, $full_name);
         
@@ -37,13 +46,13 @@ try {
             if (strpos($stmt->error, 'Duplicate entry') !== false) {
                 throw new Exception('Username or email already exists');
             }
-            throw new Exception($stmt->error);
+            throw new Exception('Execute failed: ' . $stmt->error);
         }
         
-        // Log activity
-        logActivity($conn, $stmt->insert_id, 'user_registered', 'user', $stmt->insert_id);
+        $user_id = $stmt->insert_id;
+        logActivity($conn, $user_id, 'user_registered', 'users', $user_id);
         
-        echo json_encode(['success' => true, 'id' => $stmt->insert_id, 'message' => 'User registered successfully']);
+        echo json_encode(['success' => true, 'id' => $user_id, 'message' => 'User registered successfully']);
         
     } elseif ($method === 'POST' && $action === 'login') {
         // Login user
@@ -58,8 +67,11 @@ try {
         // Find user
         $query = "SELECT id, username, email, password, full_name, role, avatar_url FROM users WHERE email = ? AND is_active = TRUE";
         $stmt = $conn->prepare($query);
+        if (!$stmt) throw new Exception('Prepare failed: ' . $conn->error);
+        
         $stmt->bind_param('s', $email);
-        $stmt->execute();
+        if (!$stmt->execute()) throw new Exception('Execute failed: ' . $stmt->error);
+        
         $user = $stmt->get_result()->fetch_assoc();
         
         if (!$user || !password_verify($password, $user['password'])) {
@@ -70,14 +82,13 @@ try {
         $token = bin2hex(random_bytes(32));
         $user_id = $user['id'];
         
-        // Store token in session (in production, use JWT or database sessions table)
+        // Store token in session
         session_start();
         $_SESSION['user_id'] = $user_id;
         $_SESSION['token'] = $token;
         $_SESSION['role'] = $user['role'];
         
-        // Log activity
-        logActivity($conn, $user_id, 'user_login', 'user', $user_id);
+        logActivity($conn, $user_id, 'user_login', 'users', $user_id);
         
         // Remove password from response
         unset($user['password']);
@@ -93,7 +104,7 @@ try {
         $user_id = $_SESSION['user_id'] ?? null;
         
         if ($user_id) {
-            logActivity($conn, $user_id, 'user_logout', 'user', $user_id);
+            logActivity($conn, $user_id, 'user_logout', 'users', $user_id);
         }
         
         session_destroy();
@@ -105,8 +116,11 @@ try {
             $user_id = $_SESSION['user_id'];
             $query = "SELECT id, username, email, full_name, role, avatar_url FROM users WHERE id = ? AND is_active = TRUE";
             $stmt = $conn->prepare($query);
+            if (!$stmt) throw new Exception('Prepare failed: ' . $conn->error);
+            
             $stmt->bind_param('i', $user_id);
-            $stmt->execute();
+            if (!$stmt->execute()) throw new Exception('Execute failed: ' . $stmt->error);
+            
             $user = $stmt->get_result()->fetch_assoc();
             
             if ($user) {
@@ -127,17 +141,7 @@ try {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
 
-function logActivity($conn, $user_id, $action, $resource_type, $resource_id) {
-    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-    $details = json_encode(['endpoint' => $_SERVER['REQUEST_URI'] ?? '']);
-    
-    $query = "INSERT INTO activity_logs (user_id, action, resource_type, resource_id, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)";
-    $stmt = $conn->prepare($query);
-    if ($stmt) {
-        $stmt->bind_param('issiis', $user_id, $action, $resource_type, $resource_id, $details, $ip);
-        $stmt->execute();
-    }
+if (isset($conn)) {
+    $conn->close();
 }
-
-$conn->close();
 ?>
