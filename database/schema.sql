@@ -118,9 +118,12 @@ CREATE TABLE feedback_reports (
     idea_count INT DEFAULT 0,
     report_data LONGTEXT,
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (version_id) REFERENCES design_versions(id) ON DELETE SET NULL,
-    FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE SET NULL,
+    KEY fk_feedback_reports_project (project_id),
+    KEY fk_feedback_reports_version (version_id),
+    KEY fk_feedback_reports_user (generated_by),
+    CONSTRAINT fk_feedback_reports_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    CONSTRAINT fk_feedback_reports_version FOREIGN KEY (version_id) REFERENCES design_versions(id) ON DELETE SET NULL,
+    CONSTRAINT fk_feedback_reports_user FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_feedback_reports_project (project_id)
 );
 
