@@ -3,7 +3,7 @@
 
 -- 1. Users Table
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
@@ -12,12 +12,13 @@ CREATE TABLE users (
     avatar_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_email (email)
 );
 
 -- 2. Projects Table
 CREATE TABLE projects (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     client_id INT NOT NULL,
     owner_id INT NOT NULL,
@@ -28,7 +29,7 @@ CREATE TABLE projects (
 
 -- 3. Project Permissions Table
 CREATE TABLE project_permissions (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
     user_id INT NOT NULL,
     role ENUM('viewer', 'editor', 'admin') DEFAULT 'viewer',
@@ -37,25 +38,29 @@ CREATE TABLE project_permissions (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
-    UNIQUE KEY unique_project_user (project_id, user_id)
+    UNIQUE KEY unique_project_user (project_id, user_id),
+    INDEX idx_project_permissions_user (user_id),
+    INDEX idx_project_permissions_project (project_id)
 );
 
 -- 4. Design Versions Table
 CREATE TABLE design_versions (
-    id SERIAL PRIMARY KEY,
-    project_id INT REFERENCES projects(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
     version_number INT NOT NULL,
     file_url TEXT NOT NULL,
     uploaded_by INT,
     description TEXT,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_design_versions_project (project_id)
 );
 
 -- 5. Contextual Pins Table
 CREATE TABLE comment_pins (
-    id SERIAL PRIMARY KEY,
-    version_id INT REFERENCES design_versions(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    version_id INT NOT NULL,
     user_id INT NOT NULL,
     x_percentage NUMERIC(5,2) NOT NULL,
     y_percentage NUMERIC(5,2) NOT NULL,
@@ -63,25 +68,29 @@ CREATE TABLE comment_pins (
     severity VARCHAR(20) DEFAULT 'Minor',
     is_resolved BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (version_id) REFERENCES design_versions(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_comment_pins_version (version_id)
 );
 
 -- 6. Threaded Comments Table
 CREATE TABLE pin_replies (
-    id SERIAL PRIMARY KEY,
-    pin_id INT REFERENCES comment_pins(id) ON DELETE CASCADE,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pin_id INT NOT NULL,
     user_id INT NOT NULL,
     comment_text TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (pin_id) REFERENCES comment_pins(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_pin_replies_pin (pin_id)
 );
 
 -- 7. Notifications Table
 CREATE TABLE notifications (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     actor_id INT,
-    type ENUM('pin_created', 'reply_added', 'pin_resolved', 'mentioned') DEFAULT 'pin_created',
+    type ENUM('pin_created', 'reply_added', 'pin_resolved', 'mentioned', 'permission_granted', 'permission_revoked') DEFAULT 'pin_created',
     related_pin_id INT,
     related_reply_id INT,
     message TEXT NOT NULL,
@@ -90,12 +99,14 @@ CREATE TABLE notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (related_pin_id) REFERENCES comment_pins(id) ON DELETE SET NULL,
-    FOREIGN KEY (related_reply_id) REFERENCES pin_replies(id) ON DELETE SET NULL
+    FOREIGN KEY (related_reply_id) REFERENCES pin_replies(id) ON DELETE SET NULL,
+    INDEX idx_notifications_user (user_id),
+    INDEX idx_notifications_read (user_id, is_read)
 );
 
 -- 8. Feedback Reports Table
 CREATE TABLE feedback_reports (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     project_id INT NOT NULL,
     version_id INT,
     generated_by INT NOT NULL,
@@ -109,12 +120,13 @@ CREATE TABLE feedback_reports (
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (version_id) REFERENCES design_versions(id) ON DELETE SET NULL,
-    FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (generated_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_feedback_reports_project (project_id)
 );
 
 -- 9. Activity Log Table
 CREATE TABLE activity_logs (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
     action VARCHAR(100),
     resource_type VARCHAR(50),
@@ -122,16 +134,7 @@ CREATE TABLE activity_logs (
     details JSON,
     ip_address VARCHAR(45),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_activity_logs_user (user_id),
+    INDEX idx_activity_logs_action (action)
 );
-
--- Indexes for performance
-CREATE INDEX idx_design_versions_project ON design_versions(project_id);
-CREATE INDEX idx_comment_pins_version ON comment_pins(version_id) WHERE is_resolved = FALSE;
-CREATE INDEX idx_pin_replies_pin ON pin_replies(pin_id);
-CREATE INDEX idx_notifications_user ON notifications(user_id);
-CREATE INDEX idx_notifications_read ON notifications(user_id, is_read);
-CREATE INDEX idx_project_permissions_user ON project_permissions(user_id);
-CREATE INDEX idx_project_permissions_project ON project_permissions(project_id);
-CREATE INDEX idx_activity_logs_user ON activity_logs(user_id);
-CREATE INDEX idx_users_email ON users(email);
