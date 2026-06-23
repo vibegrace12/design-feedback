@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Feedback System</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/feedback-viewer.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Design Feedback System</h1>
+            <div class="user-info">Welcome, Designer</div>
+        </header>
+
+        <main class="main-content">
+            <aside class="sidebar">
+                <div class="projects-section">
+                    <h2>Projects</h2>
+                    <div id="projects-list" class="projects-list"></div>
+                    <button id="new-project-btn" class="btn btn-primary">+ New Project</button>
+                </div>
+            </aside>
+
+            <section class="viewer-section">
+                <div id="viewer-placeholder" class="viewer-placeholder">
+                    <p>Select a project and version to view</p>
+                </div>
+                <div id="viewer-container" class="viewer-container" style="display: none;">
+                    <div class="viewer-header">
+                        <h2 id="version-title"></h2>
+                        <div class="viewer-controls">
+                            <select id="version-select" class="version-select"></select>
+                        </div>
+                    </div>
+                    <div class="design-canvas-wrapper">
+                        <div id="design-canvas" class="design-canvas">
+                            <img id="design-image" src="" alt="Design" />
+                        </div>
+                        <div id="pins-container" class="pins-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="feedback-panel">
+                <div id="feedback-header" class="feedback-header">
+                    <h3>Feedback</h3>
+                </div>
+                <div id="feedback-list" class="feedback-list"></div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Modal for new pin comment -->
+    <div id="pin-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Feedback</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="pin-form">
+                    <div class="form-group">
+                        <label for="pin-category">Category</label>
+                        <select id="pin-category" class="form-control">
+                            <option value="General">General</option>
+                            <option value="Copy">Copy</option>
+                            <option value="Layout">Layout</option>
+                            <option value="Color">Color</option>
+                            <option value="Typography">Typography</option>
+                            <option value="Spacing">Spacing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pin-severity">Severity</label>
+                        <select id="pin-severity" class="form-control">
+                            <option value="Idea">Idea</option>
+                            <option value="Minor">Minor</option>
+                            <option value="Blocker">Blocker</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pin-comment">Comment</label>
+                        <textarea id="pin-comment" class="form-control" rows="4" placeholder="Add your feedback here..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Feedback</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for thread replies -->
+    <div id="thread-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Feedback Thread</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="thread-content" class="thread-content"></div>
+                <form id="reply-form" class="reply-form">
+                    <textarea id="reply-comment" class="form-control" rows="3" placeholder="Add a reply..."></textarea>
+                    <button type="submit" class="btn btn-primary">Reply</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/feedback-viewer.js"></script>
+</body>
+</html>
